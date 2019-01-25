@@ -23,7 +23,7 @@ func main() {
 	// Binding address
 	tcpAddr, err := net.ResolveTCPAddr("tcp", service)
 	checkError(err)
-
+	
 	// Listen()
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	checkError(err)
