@@ -13,17 +13,19 @@ import (
 var currAddress *net.UDPAddr
 
 var endConnection = false
+var flag = false
 
 func handleConnection(service string) {
 	wg := sync.WaitGroup{}
 	// Binding process
 	udpAddr, err := net.ResolveUDPAddr("udp4", service)
 	checkError(err)
-
+	// currAddress = udpAddr
 	// Creating a connection, essentially connect()
 	conn, err := net.DialUDP("udp", nil, udpAddr)
 	checkError(err)
-
+	_, err = conn.Write([]byte("Connected"))
+	checkError(err)
 	wg.Add(1)
 	go func() {
 		handleReceivedMessage(conn)
@@ -50,13 +52,18 @@ func handleServer(port string) {
 	checkError(err)
 
 	wg.Add(1)
-	go func(){
-		handleReceivedMessage(conn)
+	go func() {
+		for {
+			handleReceivedMessage(conn)
+		}
+
 		wg.Done()
+		fmt.Println("Done")
 	}()
 
 	wg.Add(1)
-	go func(){
+	go func() {
+		flag = true
 		handleSendMessage(conn)
 		wg.Done()
 	}()
@@ -83,6 +90,16 @@ func main() {
 }
 
 func handleWrite(conn *net.UDPConn, message []byte) {
+	// if currAddress == nil {
+	// 	log.Println("Address empty")
+	// 	return
+	// }
+	if flag {
+		_, err := conn.WriteToUDP(message, currAddress)
+		fmt.Println(err)
+		checkError(err)
+		return
+	}
 	_, err := conn.Write(message)
 	checkError(err)
 }
@@ -94,10 +111,11 @@ func checkError(err error) {
 	}
 }
 
-func handleReceivedMessage(conn *net.UDPConn){
+func handleReceivedMessage(conn *net.UDPConn) {
 	var buf [512]byte
 
 	n, addr, err := conn.ReadFromUDP(buf[0:])
+	currAddress = addr
 	if err != nil {
 		return
 	}
