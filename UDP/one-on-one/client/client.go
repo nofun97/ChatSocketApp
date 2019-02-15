@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-// var udpAddr *net.UDPAddr
-
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s :port", os.Args[0])

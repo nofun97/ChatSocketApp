@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	// "time"
 )
 
 const (
@@ -167,7 +166,7 @@ func handleCommandRun(conn net.Conn) {
 			log.Println(err)
 			messageToSend <- []byte(err.Error())
 		} else {
-			// fmt.Println(string(out))
+			
 			messageToSend <- []byte(out)
 		}
 	}

@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"sync"
-	// "time"
 )
 
 const (
@@ -72,7 +71,7 @@ func handleZombie(service string) {
 	// Binding process
 	udpAddr, err := net.ResolveUDPAddr("udp4", service)
 	checkError(err)
-	// currAddress = udpAddr
+	
 	// Creating a connection, essentially connect()
 	conn, err := net.DialUDP("udp", nil, udpAddr)
 	checkError(err)

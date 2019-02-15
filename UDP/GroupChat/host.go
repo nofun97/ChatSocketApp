@@ -7,34 +7,35 @@ import (
 	"net"
 	"os"
 	"sync"
-	// "time"
 )
 
-const (
-	mode = "tcp"
-)
+var currAddress *net.UDPAddr
 
 var endConnection = false
+
 
 func handleConnection(service string) {
 	wg := sync.WaitGroup{}
 	// Binding process
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
+	udpAddr, err := net.ResolveUDPAddr("udp", service)
+	checkError(err)
+	currAddress = udpAddr
+	// Creating a connection, essentially connect()
+	conn, err := net.DialUDP("udp", nil, udpAddr)
 	checkError(err)
 
-	// Creating a connection, essentially connect()
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	checkError(err)
 
 	wg.Add(1)
 	go func() {
-		handleReceivedMessage(conn)
+		for {
+			handleReceivedMessage(conn)
+		}
 		wg.Done()
 	}()
 
 	wg.Add(1)
 	go func() {
-		handleSendMessage(conn)
+		handleClientSendMessage(conn)
 		wg.Done()
 	}()
 
@@ -44,24 +45,24 @@ func handleConnection(service string) {
 
 func handleServer(port string) {
 	wg := sync.WaitGroup{}
-	tcpAddr, err := net.ResolveTCPAddr("tcp", port)
+	udpAddr, err := net.ResolveUDPAddr("udp4", port)
 	checkError(err)
 
 	// Listen()
-	listener, err := net.ListenTCP("tcp", tcpAddr)
-	checkError(err)
-
-	conn, err := listener.Accept()
+	conn, err := net.ListenUDP("udp", udpAddr)
 	checkError(err)
 
 	wg.Add(1)
-	go func(){
-		handleReceivedMessage(conn)
+	go func() {
+		for {
+			handleReceivedMessage(conn)
+		}
 		wg.Done()
+		fmt.Println("Done")
 	}()
 
 	wg.Add(1)
-	go func(){
+	go func() {
 		handleSendMessage(conn)
 		wg.Done()
 	}()
@@ -87,7 +88,6 @@ func main() {
 	os.Exit(0)
 }
 
-
 func checkError(err error) {
 	if err != nil {
 		log.Println(os.Stderr, "Fatal error: %s", err.Error())
@@ -95,22 +95,37 @@ func checkError(err error) {
 	}
 }
 
-func handleReceivedMessage(conn net.Conn){
-	scanner := bufio.NewScanner(conn)
-	for scanner.Scan() {
-		if scanner.Text() == "" || scanner.Text() == "\n"{
-			continue
-		}
-		fmt.Println("From ", conn.RemoteAddr().String(),": ", scanner.Text())
+func handleReceivedMessage(conn *net.UDPConn) {
+	var buf [512]byte
+
+	n, addr, err := conn.ReadFromUDP(buf[0:])
+	currAddress = addr
+	if err != nil {
+		return
 	}
+	fmt.Println(n)
+	message := string(buf[0:n])
+	fmt.Println("From ", addr, ": ", message)
 }
 
-func handleSendMessage(conn net.Conn) {
+func handleSendMessage(conn *net.UDPConn) {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		message, err := reader.ReadBytes('\n')
 		checkError(err)
 		messSTR := string(message) + "\n"
+		// Write request
+		conn.WriteToUDP([]byte(messSTR), currAddress)
+	}
+}
+
+func handleClientSendMessage(conn *net.UDPConn) {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		message, err := reader.ReadBytes('\n')
+		checkError(err)
+		messSTR := string(message) + "\n"
+		// Write request
 		conn.Write([]byte(messSTR))
 	}
 }
