@@ -87,13 +87,6 @@ func main() {
 	os.Exit(0)
 }
 
-func handleWrite(conn net.Conn, message []byte) {
-	if string(message) == "/quit" {
-		endConnection = true
-	}
-	_, err := conn.Write(message)
-	checkError(err)
-}
 
 func checkError(err error) {
 	if err != nil {
@@ -105,7 +98,10 @@ func checkError(err error) {
 func handleReceivedMessage(conn net.Conn){
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
-			fmt.Println(scanner.Text())
+		if scanner.Text() == "" || scanner.Text() == "\n"{
+			continue
+		}
+		fmt.Println("From ", conn.RemoteAddr().String(),": ", scanner.Text())
 	}
 }
 
@@ -115,7 +111,6 @@ func handleSendMessage(conn net.Conn) {
 		message, err := reader.ReadBytes('\n')
 		checkError(err)
 		messSTR := string(message) + "\n"
-		// Write request
-		handleWrite(conn, []byte(messSTR))
+		conn.Write([]byte(messSTR))
 	}
 }

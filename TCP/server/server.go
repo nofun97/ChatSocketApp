@@ -3,34 +3,34 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"os"
-	"sync"
 )
 
-type messages struct {
-	conn    net.Conn
-	message []byte
-}
-
-var clients = struct {
-	sync.RWMutex
-	m map[net.Conn]int
-}{m: make(map[net.Conn]int)}
+var clients = make(map[net.Conn]int)
 
 func main() {
-	service := ":1337"
+	if len(os.Args) != 1 {
+		log.Printf("Usage: %s :port ", os.Args[0])
+		os.Exit(1)
+	}
+	service := os.Args[1]
+	handleServer(service)
+
+	os.Exit(0)
+}
+
+func handleServer(port string) {
 	// Binding address
-	tcpAddr, err := net.ResolveTCPAddr("tcp", service)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", port)
 	checkError(err)
-	
+
 	// Listen()
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	checkError(err)
 
-	// messageQueue := make(chan messages, 20)
 	connectionQueue := make(chan net.Conn, 5)
-	var conn net.Conn
 
 	go func() {
 		for {
@@ -42,19 +42,14 @@ func main() {
 	}()
 
 	for {
-		conn, err = listener.Accept()
+		conn, err := listener.Accept()
 
 		checkError(err)
-		clients.Lock()
-		if _, ok := clients.m[conn]; !ok {
-			clients.m[conn] = 1
+		if _, ok := clients[conn]; !ok {
+			clients[conn] = 1
 		}
-		clients.Unlock()
 		connectionQueue <- conn
-		fmt.Println(len(connectionQueue))
 	}
-
-	os.Exit(0)
 }
 
 func handleConnection(conn net.Conn) {
@@ -62,31 +57,15 @@ func handleConnection(conn net.Conn) {
 	for scanner.Scan() {
 		text := scanner.Bytes()
 		fmt.Println(string(text))
-		message := &messages{conn: conn, message: text}
-		handleMessage(message)
-	}
-}
-
-func handleMessage(message *messages) {
-	if string(message.message) == "/quit" {
-		clients.Lock()
-		if _, ok := clients.m[message.conn]; ok {
-			message.conn.Close()
-			clients.m[message.conn] = 0
+		if len(text) <= 0 {
+			continue
 		}
-		clients.Unlock()
-	}
 
-	sendMessages(message)
-}
-
-func sendMessages(message *messages) {
-	clients.Lock()
-	defer clients.Unlock()
-	for k, v := range clients.m {
-		if k != message.conn && v == 1 {
-			text := string(message.message) + "\n"
-			k.Write([]byte(text))
+		for k := range clients {
+			if k != conn {
+				text := string(text) + "\n"
+				k.Write([]byte(text))
+			}
 		}
 	}
 }

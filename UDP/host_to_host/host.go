@@ -13,28 +13,30 @@ import (
 var currAddress *net.UDPAddr
 
 var endConnection = false
-var flag = false
+
 
 func handleConnection(service string) {
 	wg := sync.WaitGroup{}
 	// Binding process
-	udpAddr, err := net.ResolveUDPAddr("udp4", service)
+	udpAddr, err := net.ResolveUDPAddr("udp", service)
 	checkError(err)
-	// currAddress = udpAddr
+	currAddress = udpAddr
 	// Creating a connection, essentially connect()
 	conn, err := net.DialUDP("udp", nil, udpAddr)
 	checkError(err)
-	_, err = conn.Write([]byte("Connected"))
-	checkError(err)
+
+
 	wg.Add(1)
 	go func() {
-		handleReceivedMessage(conn)
+		for {
+			handleReceivedMessage(conn)
+		}
 		wg.Done()
 	}()
 
 	wg.Add(1)
 	go func() {
-		handleSendMessage(conn)
+		handleClientSendMessage(conn)
 		wg.Done()
 	}()
 
@@ -56,14 +58,12 @@ func handleServer(port string) {
 		for {
 			handleReceivedMessage(conn)
 		}
-
 		wg.Done()
 		fmt.Println("Done")
 	}()
 
 	wg.Add(1)
 	go func() {
-		flag = true
 		handleSendMessage(conn)
 		wg.Done()
 	}()
@@ -89,21 +89,6 @@ func main() {
 	os.Exit(0)
 }
 
-func handleWrite(conn *net.UDPConn, message []byte) {
-	// if currAddress == nil {
-	// 	log.Println("Address empty")
-	// 	return
-	// }
-	if flag {
-		_, err := conn.WriteToUDP(message, currAddress)
-		fmt.Println(err)
-		checkError(err)
-		return
-	}
-	_, err := conn.Write(message)
-	checkError(err)
-}
-
 func checkError(err error) {
 	if err != nil {
 		log.Println(os.Stderr, "Fatal error: %s", err.Error())
@@ -119,7 +104,7 @@ func handleReceivedMessage(conn *net.UDPConn) {
 	if err != nil {
 		return
 	}
-
+	fmt.Println(n)
 	message := string(buf[0:n])
 	fmt.Println("From ", addr, ": ", message)
 }
@@ -131,6 +116,17 @@ func handleSendMessage(conn *net.UDPConn) {
 		checkError(err)
 		messSTR := string(message) + "\n"
 		// Write request
-		handleWrite(conn, []byte(messSTR))
+		conn.WriteToUDP([]byte(messSTR), currAddress)
+	}
+}
+
+func handleClientSendMessage(conn *net.UDPConn) {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		message, err := reader.ReadBytes('\n')
+		checkError(err)
+		messSTR := string(message) + "\n"
+		// Write request
+		conn.Write([]byte(messSTR))
 	}
 }
